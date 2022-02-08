@@ -68,14 +68,29 @@ def read_signal(frequency, duration, chunks):
     return df
     
 
+def print_message():
+    print("                                           ___ ")
+    print("                                     |     | | ")
+    print("                                    / \    | | ")
+    print("                                   |--o|===|-| ")
+    print("                                   |---|   | | ")
+    print("                                  /     \  | | ")
+    print("     /\                          | N     | | | ")
+    print("    /  \    _____   _ _ __ ___   | A     |=| | ")
+    print("   / /\ \  |_  / | | | '__/ _ \  | S     | | | ")
+    print("  / ____ \  / /| |_| | | |  __/  |_A_____| |_| ")
+    print(" /_/    \_\/___|\__,_|_|  \___|   |@| |@|  | | ")
+    print("                                ___________|_|_")
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
 parser = argparse.ArgumentParser(description='RF Generator.')
-parser.add_argument('--iterations', help='number of iterations', type=int)
+parser.add_argument('--iterations', help='number of iterations', type=int, default=1)
+parser.add_argument('--duration', help='duration (s) for each iteration', type=int, default=60)
 args = parser.parse_args()
 
-DURATION = 60
+print_message()
+
 SIGNAL_THRESHOLD = 30 # any number from 0 to 100
 CHUNKS = 10
 
@@ -85,10 +100,10 @@ process_start = start.to_pydatetime()
 for i in range(args.iterations):
     frequency = np.random.choice([3400, 9000, 12000])
     print(f'Iteration {i}, freq={frequency}')
-    dff = read_signal(frequency, DURATION, CHUNKS)
+    dff = read_signal(frequency, args.duration, CHUNKS)
 
     # restore timestamp
-    end = start + pd.DateOffset(seconds=DURATION)
+    end = start + pd.DateOffset(seconds=args.duration)
 
     dff['time'] = pd.to_datetime(np.linspace(start.value, end.value, CHUNKS))
     start = end
