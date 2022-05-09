@@ -4,15 +4,25 @@ import numpy as np
 import pandas as pd
 import scipy.stats as stats
 from scipy.fft import rfft, rfftfreq
+from timeit import default_timer as timer   # library to check time to run program
+from numba import vectorize     #library to use GPU
+
+# for vectorizing need to add:
+#   @vectorize(['float32(float32,float32)'],target='cuda')
 
 
+starttime = timer()
+# use "linspace" function to create even spaced values according to sample rate and duration
 def create_t(duration, sample_rate):
     return np.linspace(0, duration, sample_rate * duration, endpoint=False)
 
+
+# create sin wave with duration and frequency
 def create_sin(x, freq):
     frequencies = x * freq
     # 2pi because np.sin takes radians
     return np.sin((2 * np.pi) * frequencies)
+
 
 def create_pdf(x, mu, std):
     return stats.norm.pdf(x, mu, std) 
@@ -25,9 +35,11 @@ def moving_avg(x, n):
 def normalize(x):
     return (x - np.min(x)) / (np.max(x) - np.min(x))
 
+# add random noise to wanted signal
 def random_noise(x, factor=1):
     return np.random.random(len(x)) * factor
 
+# normalize random noise??
 def random_pdf(x):
     xmax = max(x)
     mu = np.random.rand() * xmax
@@ -36,10 +48,8 @@ def random_pdf(x):
 
 
 def read_signal(frequency, duration, chunks):
-    sample_rate = frequency * 10
-
-    x = create_t(duration, sample_rate)
-
+    sample_rate = frequency * 10            # rate at which sine wave will be sampled
+    x = create_t(duration, sample_rate)     # create variable "x" to represent signal duration
     signal_strength = (random_pdf(x) + random_pdf(x))
     y_noise = random_noise(x, 10)
     y_signal = create_sin(x, frequency) * signal_strength + y_noise
@@ -50,7 +60,7 @@ def read_signal(frequency, duration, chunks):
 
     # split the dataframe in chunks of equal size
     def f(ys, freq_position=None):
-        frequencies = np.abs(rfft(ys.to_numpy()))
+        frequencies = np.abs(rfft(ys.to_numpy()))  # use right FFT to avoid using negative numbers.
         return frequencies[freq_position[0]:freq_position[1]].max()
 
     # find where is the frequency inside each chunk's array
@@ -60,6 +70,7 @@ def read_signal(frequency, duration, chunks):
     idx = np.argwhere(abs(xf - frequency) < FREQUENCY_THRESHOLD)
     freq_position = (idx.min(), idx.max())
 
+    
     # apply rfft for each chunk
     df = df.groupby(np.arange(len(df)) // int(len(df) / chunks))['signal'].apply(f, freq_position=freq_position).reset_index()
 
@@ -72,7 +83,7 @@ def print_message():
     print("                                           ___ ")
     print("                                     |     | | ")
     print("                                    / \    | | ")
-    print("                                   |--o|===|-| ")
+    print("     PROCESSING...                 |--o|===|-| ")
     print("                                   |---|   | | ")
     print("                                  /     \  | | ")
     print("     /\                          | N     | | | ")
@@ -98,7 +109,7 @@ records = []
 start = pd.Timestamp.utcnow()
 process_start = start.to_pydatetime()
 for i in range(args.iterations):
-    frequency = np.random.choice([3400, 9000, 12000])
+    frequency = np.random.choice([3400, 9000, 12000], size=None, p=[0.6, 0.2, 0.2])  # Weighted choise 60% time the first one
     print(f'Iteration {i}, freq={frequency}')
     dff = read_signal(frequency, args.duration, CHUNKS)
 
@@ -129,3 +140,6 @@ df = pd.DataFrame(records)
 file_name = f'o{process_start.strftime("%y%m%d%H%M%S")}'
 df.to_parquet(f'{file_name}.parquet', index=False, allow_truncated_timestamps=True)
 df.to_csv(f'{file_name}.csv', index=False, date_format='%Y-%m-%dT%H:%M:%S.%f%z')
+
+duration = timer() - starttime
+print ("time taken", duration)
